@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/libsql";
-import * as schema from "./schema";
+import { migrate } from "drizzle-orm/libsql/migrator";
 import { createClient } from "@libsql/client";
 import path from "path";
 import { existsSync, mkdirSync } from "fs";
@@ -10,13 +10,15 @@ if (!existsSync(dataDir)) {
   mkdirSync(dataDir, { recursive: true });
 }
 
-// Create libsql client (works with local SQLite file)
+// Create libsql client
 const client = createClient({
   url: `file:${path.join(dataDir, "uganda-insights.db")}`,
 });
 
 // Create drizzle instance
-export const db = drizzle(client, { schema });
+const db = drizzle(client);
 
-// Export all schema tables
-export * from "./schema";
+// Run migrations
+console.log("Running migrations...");
+migrate(db, { migrationsFolder: "./src/db/migrations" });
+console.log("Migrations complete!");
