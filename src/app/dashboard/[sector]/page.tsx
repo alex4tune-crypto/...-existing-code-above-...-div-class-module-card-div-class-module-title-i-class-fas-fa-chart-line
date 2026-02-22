@@ -1,16 +1,17 @@
 import SectorDashboard from "@/components/SectorDashboard";
 
-export default function SectorPage({ 
+export default async function SectorPage({ 
   params 
 }: { 
   params: Promise<{ sector: string }> 
 }) {
   // For demo, all users are premium. In production, check auth session
   const isPremium = true;
+  const { sector } = await params;
   
   return (
     <SectorDashboard 
-      sectorSlug={(params as any).sector} 
+      sectorSlug={sector} 
       isPremium={isPremium}
     />
   );
