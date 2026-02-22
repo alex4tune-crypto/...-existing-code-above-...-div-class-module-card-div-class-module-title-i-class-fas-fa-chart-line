@@ -1,20 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "Uganda Economic Dashboard",
-  description: "Real-time economic data dashboard for Uganda",
+  title: "Uganda Insights - Business Intelligence & Market Sentiment",
+  description: "Subscription-based Business Intelligence & Market Sentiment SaaS platform focused on Ugandan businesses and analysts.",
+  keywords: ["Uganda", "Business Intelligence", "Market Sentiment", "Analytics", "Africa", "Finance", "Retail", "Telecom", "Agriculture"],
 };
 
 export default function RootLayout({
@@ -24,9 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         {children}
       </body>
     </html>
