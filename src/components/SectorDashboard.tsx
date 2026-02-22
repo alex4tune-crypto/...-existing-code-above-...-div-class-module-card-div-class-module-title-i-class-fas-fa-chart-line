@@ -1,16 +1,25 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Line, Bar, Doughnut } from "react-chartjs-2";
+import { motion } from "framer-motion";
 import { 
-  lineChartOptions, 
-  barChartOptions, 
-  doughnutChartOptions,
-  chartColors,
-  getSentimentColor,
-  getRiskColor
-} from "@/lib/chart-config";
-import { ShoppingCart, Smartphone, Landmark, Wheat, TrendingUp, AlertTriangle, Loader2 } from "lucide-react";
+  AreaChart, 
+  Area, 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from "recharts";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useAnimations } from "@/hooks/useDeviceDetection";
+import { LoadingOverlay, Skeleton, CardSkeleton, ChartSkeleton } from "@/components/Skeleton";
+import { ShoppingCart, Smartphone, Landmark, Wheat, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
 
 interface SectorDashboardProps {
   sectorSlug: string;
@@ -45,10 +54,15 @@ interface DashboardData {
 
 // Sentinel-themed colors
 const sentinelColors = {
-  gold: "#fbbf24",
-  goldGlow: "rgba(251, 191, 36, 0.5)",
+  gold: "#eab308",
+  goldLight: "#facc15",
+  goldGlow: "rgba(234, 179, 8, 0.5)",
   emerald: "#10b981",
+  emeraldLight: "#34d399",
   emeraldGlow: "rgba(16, 185, 129, 0.5)",
+  crimson: "#ef4444",
+  crimsonLight: "#f87171",
+  crimsonGlow: "rgba(239, 68, 68, 0.5)",
   slate: "#1e293b",
   slateGlass: "rgba(30, 41, 59, 0.5)",
   border: "rgba(148, 163, 184, 0.1)",
@@ -61,19 +75,49 @@ const sectorIcons: Record<string, React.ElementType> = {
   agriculture: Wheat,
 };
 
+const sectorGradients: Record<string, string> = {
+  retail: "from-amber-500 to-orange-500",
+  telecom: "from-blue-500 to-cyan-500",
+  finance: "from-purple-500 to-pink-500",
+  agriculture: "from-emerald-500 to-green-500",
+};
+
+// Custom tooltip component
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-900/95 backdrop-blur border border-yellow-500/30 rounded-lg p-3 shadow-xl">
+        <p className="text-yellow-500 font-medium mb-1">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <p key={index} className="text-slate-300 text-sm" style={{ color: entry.color }}>
+            {entry.name}: {entry.value}
+            {entry.name === "Score" || entry.name === "Sentiment" ? "%" : ""}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 export default function SectorDashboard({ sectorSlug, isPremium }: SectorDashboardProps) {
+  const { t } = useLanguage();
+  const { shouldAnimate, animationDuration } = useAnimations();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     async function fetchData() {
+      setLoading(true);
       try {
         const response = await fetch(`/api/dashboard/${sectorSlug}`);
         const result = await response.json();
         
         if (result.success) {
           setData(result.data);
+          setError(null);
         } else {
           setError(result.error);
         }
@@ -85,36 +129,58 @@ export default function SectorDashboard({ sectorSlug, isPremium }: SectorDashboa
     }
 
     fetchData();
-  }, [sectorSlug]);
+  }, [sectorSlug, refreshKey]);
 
-  // Sentinel Node Loading State
+  const handleRefresh = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
+  // Loading state with skeleton
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-yellow-500 animate-spin mx-auto mb-4" />
-          <p className="text-slate-400 font-mono text-sm">Connecting to Sentinel Node...</p>
-          <div className="mt-4 flex justify-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-yellow-500/60 animate-pulse" style={{ animationDelay: '0ms' }} />
-            <div className="w-2 h-2 rounded-full bg-yellow-500/60 animate-pulse" style={{ animationDelay: '150ms' }} />
-            <div className="w-2 h-2 rounded-full bg-yellow-500/60 animate-pulse" style={{ animationDelay: '300ms' }} />
+      <div className="space-y-6 p-4 lg:p-6">
+        <div className="glass-card p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Skeleton variant="circular" width={64} height={64} />
+              <div>
+                <Skeleton variant="text" width={200} height={32} className="mb-2" />
+                <Skeleton variant="text" width={300} height={20} />
+              </div>
+            </div>
+            <Skeleton variant="text" width={100} height={48} />
           </div>
+        </div>
+        
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <CardSkeleton key={i} />
+          ))}
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ChartSkeleton />
+          <ChartSkeleton />
         </div>
       </div>
     );
   }
 
-  // Sentinel Error State
+  // Error state
   if (error || !data) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center p-8 bg-slate-800/30 backdrop-blur border border-slate-700/50 rounded-xl">
+        <div className="text-center p-8 glass-card max-w-md">
           <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <p className="text-slate-300 font-medium">Connecting to Sentinel Node...</p>
+          <p className="text-slate-300 font-medium">{t("common.error")}: {error}</p>
           <p className="text-slate-500 text-sm mt-2">Establishing secure connection</p>
-          <div className="mt-6 h-1 bg-slate-700 rounded-full overflow-hidden">
-            <div className="h-full bg-yellow-500 animate-pulse" style={{ width: '60%' }} />
-          </div>
+          <button 
+            onClick={handleRefresh}
+            className="mt-6 flex items-center gap-2 px-4 py-2 bg-yellow-500/20 text-yellow-500 rounded-lg hover:bg-yellow-500/30 transition-colors mx-auto"
+          >
+            <RefreshCw className="w-4 h-4" />
+            {t("common.retry")}
+          </button>
         </div>
       </div>
     );
@@ -123,102 +189,43 @@ export default function SectorDashboard({ sectorSlug, isPremium }: SectorDashboa
   const { sector, sentiment, keywords, topics, weeklySummary } = data;
   const sentimentScore = sentiment.current?.overallScore || 0;
   const SectorIcon = sectorIcons[sectorSlug] || TrendingUp;
+  const gradient = sectorGradients[sectorSlug] || "from-yellow-500 to-amber-500";
 
-  // Glowing gradient chart options
-  const glowingLineOptions = {
-    ...lineChartOptions,
-    scales: {
-      x: {
-        grid: { display: false },
-        ticks: { color: "#94a3b8" },
-      },
-      y: {
-        grid: { color: "rgba(148, 163, 184, 0.1)" },
-        ticks: { color: "#94a3b8" },
-      },
-    },
-    plugins: {
-      ...lineChartOptions.plugins,
-      tooltip: {
-        ...lineChartOptions.plugins?.tooltip,
-        backgroundColor: "rgba(15, 23, 42, 0.9)",
-        titleColor: "#fbbf24",
-        bodyColor: "#e2e8f0",
-        borderColor: "rgba(251, 191, 36, 0.3)",
-        borderWidth: 1,
-      },
-    },
-  };
+  // Prepare chart data with Recharts
+  const trendData = [
+    { day: "Mon", score: 20 },
+    { day: "Tue", score: 30 },
+    { day: "Wed", score: 25 },
+    { day: "Thu", score: 35 },
+    { day: "Fri", score: Math.round((sentimentScore + 1) * 50) },
+    { day: "Sat", score: Math.round((sentimentScore + 1) * 50) + 5 },
+    { day: "Sun", score: Math.round((sentimentScore + 1) * 50) },
+  ];
 
-  // Prepare chart data with glowing effects
-  const trendData = {
-    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    datasets: [
-      {
-        label: "Sentiment Score",
-        data: [0.2, 0.3, 0.25, 0.35, sentimentScore, sentimentScore + 0.05, sentimentScore],
-        borderColor: sentinelColors.emerald,
-        backgroundColor: (context: any) => {
-          const ctx = context.chart.ctx;
-          const gradient = ctx.createLinearGradient(0, 0, 0, 256);
-          gradient.addColorStop(0, sentinelColors.emeraldGlow);
-          gradient.addColorStop(1, "transparent");
-          return gradient;
-        },
-        fill: true,
-        tension: 0.4,
-        pointBackgroundColor: sentinelColors.emerald,
-        pointBorderColor: "#0f172a",
-        pointBorderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-      },
-    ],
-  };
+  const sentimentPieData = [
+    { name: "Positive", value: sentiment.current?.positivePercent || 45, color: sentinelColors.emerald },
+    { name: "Neutral", value: sentiment.current?.neutralPercent || 35, color: sentinelColors.gold },
+    { name: "Negative", value: sentiment.current?.negativePercent || 20, color: sentinelColors.crimson },
+  ];
 
-  const sentimentPieData = {
-    labels: ["Positive", "Neutral", "Negative"],
-    datasets: [
-      {
-        data: [
-          sentiment.current?.positivePercent || 45,
-          sentiment.current?.neutralPercent || 35,
-          sentiment.current?.negativePercent || 20,
-        ],
-        backgroundColor: [sentinelColors.emerald, sentinelColors.gold, "#ef4444"],
-        borderWidth: 0,
-        hoverOffset: 8,
-      },
-    ],
-  };
-
-  const topicData = {
-    labels: topics.slice(0, 5).map((t) => t.name),
-    datasets: [
-      {
-        label: "Articles",
-        data: topics.slice(0, 5).map((t) => t.articleCount || Math.floor(Math.random() * 50) + 10),
-        backgroundColor: (context: any) => {
-          const ctx = context.chart.ctx;
-          const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-          gradient.addColorStop(0, sentinelColors.gold);
-          gradient.addColorStop(1, "rgba(251, 191, 36, 0.6)");
-          return gradient;
-        },
-        borderRadius: 6,
-        borderSkipped: false,
-      },
-    ],
-  };
+  const topicData = topics.slice(0, 5).map((t) => ({
+    name: t.name.length > 12 ? t.name.substring(0, 12) + "..." : t.name,
+    articles: t.articleCount || Math.floor(Math.random() * 50) + 10,
+  }));
 
   return (
     <div className="space-y-6 p-4 lg:p-6">
       {/* Header */}
-      <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+      <motion.div
+        initial={shouldAnimate ? { opacity: 0, y: -20 } : false}
+        animate={shouldAnimate ? { opacity: 1, y: 0 } : false}
+        transition={{ duration: animationDuration }}
+        className="glass-card p-6"
+      >
         <div className="flex items-center justify-between flex-col lg:flex-row gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-yellow-500/20 to-emerald-500/20 flex items-center justify-center border border-yellow-500/30">
-              <SectorIcon className="w-8 h-8 text-yellow-500" />
+            <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+              <SectorIcon className="w-8 h-8 text-white" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">
@@ -229,115 +236,188 @@ export default function SectorDashboard({ sectorSlug, isPremium }: SectorDashboa
           </div>
           <div className="text-right">
             <p className="text-sm text-slate-500">Sentiment Score</p>
-            <p className="text-4xl font-bold" style={{ color: getSentimentColor(sentimentScore), textShadow: `0 0 20px ${getSentimentColor(sentimentScore)}40` }}>
+            <p 
+              className="text-4xl font-bold text-white"
+              style={{ 
+                color: sentimentScore > 0 ? sentinelColors.emerald : sentinelColors.gold,
+                textShadow: `0 0 20px ${sentimentScore > 0 ? sentinelColors.emeraldGlow : sentinelColors.goldGlow}`
+              }}
+            >
               {((sentimentScore + 1) * 50).toFixed(0)}
             </p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Sentiment Cards - Glassmorphism */}
+      {/* Sentiment Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 rounded-xl p-5 hover:border-emerald-500/30 transition-colors">
-          <p className="text-sm text-slate-500 mb-1">Positive</p>
-          <p className="text-2xl font-bold" style={{ color: sentinelColors.emerald }}>
-            {sentiment.current?.positivePercent?.toFixed(1) || 45}%
-          </p>
-          <div className="h-1 bg-slate-700/50 rounded-full mt-3">
-            <div 
-              className="h-1 rounded-full" 
+        {[
+          { label: "Positive", value: sentiment.current?.positivePercent || 45, color: sentinelColors.emerald, glow: sentinelColors.emeraldGlow },
+          { label: "Neutral", value: sentiment.current?.neutralPercent || 35, color: sentinelColors.gold, glow: sentinelColors.goldGlow },
+          { label: "Negative", value: sentiment.current?.negativePercent || 20, color: sentinelColors.crimson, glow: sentinelColors.crimsonGlow },
+          { label: "Risk Level", value: weeklySummary?.riskLevel || "Medium", color: sentinelColors.gold, glow: sentinelColors.goldGlow, isText: true },
+        ].map((item, index) => (
+          <motion.div
+            key={index}
+            initial={shouldAnimate ? { opacity: 0, y: 20 } : false}
+            animate={shouldAnimate ? { opacity: 1, y: 0 } : false}
+            transition={{ duration: animationDuration, delay: index * 0.1 }}
+            className="glass-card p-5 hover:border-yellow-500/30 transition-colors"
+          >
+            <p className="text-sm text-slate-500 mb-1">{item.label}</p>
+            <p 
+              className="text-2xl font-bold"
               style={{ 
-                width: `${sentiment.current?.positivePercent || 45}%`,
-                backgroundColor: sentinelColors.emerald,
-                boxShadow: `0 0 10px ${sentinelColors.emeraldGlow}`
+                color: item.color,
+                textShadow: item.isText ? undefined : `0 0 10px ${item.glow}`
               }}
-            />
-          </div>
-        </div>
-        
-        <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 rounded-xl p-5 hover:border-yellow-500/30 transition-colors">
-          <p className="text-sm text-slate-500 mb-1">Neutral</p>
-          <p className="text-2xl font-bold" style={{ color: sentinelColors.gold }}>
-            {sentiment.current?.neutralPercent?.toFixed(1) || 35}%
-          </p>
-          <div className="h-1 bg-slate-700/50 rounded-full mt-3">
-            <div 
-              className="h-1 rounded-full" 
-              style={{ 
-                width: `${sentiment.current?.neutralPercent || 35}%`,
-                backgroundColor: sentinelColors.gold,
-                boxShadow: `0 0 10px ${sentinelColors.goldGlow}`
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 rounded-xl p-5 hover:border-red-500/30 transition-colors">
-          <p className="text-sm text-slate-500 mb-1">Negative</p>
-          <p className="text-2xl font-bold text-red-400">
-            {sentiment.current?.negativePercent?.toFixed(1) || 20}%
-          </p>
-          <div className="h-1 bg-slate-700/50 rounded-full mt-3">
-            <div 
-              className="h-1 rounded-full" 
-              style={{ 
-                width: `${sentiment.current?.negativePercent || 20}%`,
-                backgroundColor: "#ef4444",
-                boxShadow: "0 0 10px rgba(239, 68, 68, 0.5)"
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 rounded-xl p-5 hover:border-yellow-500/30 transition-colors">
-          <p className="text-sm text-slate-500 mb-1">Risk Level</p>
-          <p className="text-2xl font-bold" style={{ color: getRiskColor(weeklySummary?.riskLevel || "Medium") }}>
-            {weeklySummary?.riskLevel || "Medium"}
-          </p>
-          <p className="text-xs text-slate-500 mt-2">Based on sentiment analysis</p>
-        </div>
+            >
+              {item.isText ? item.value : typeof item.value === 'number' ? `${item.value?.toFixed(1)}%` : item.value}
+            </p>
+            {!item.isText && (
+              <div className="h-1 bg-slate-700/50 rounded-full mt-3">
+                <div 
+                  className="h-1 rounded-full" 
+                  style={{ 
+                    width: `${item.value}%`,
+                    backgroundColor: item.color,
+                    boxShadow: `0 0 10px ${item.glow}`
+                  }}
+                />
+              </div>
+            )}
+          </motion.div>
+        ))}
       </div>
 
-      {/* Charts Row */}
+      {/* Charts Row - Recharts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sentiment Trend - Glowing Emerald */}
-        <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+        {/* Sentiment Trend - Area Chart */}
+        <motion.div
+          initial={shouldAnimate ? { opacity: 0, y: 20 } : false}
+          animate={shouldAnimate ? { opacity: 1, y: 0 } : false}
+          transition={{ duration: animationDuration, delay: 0.2 }}
+          className="glass-card p-6"
+        >
           <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-emerald-400" />
             Sentiment Trend (7 Days)
           </h3>
           <div className="h-64">
-            <Line data={trendData} options={glowingLineOptions as any} />
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trendData}>
+                <defs>
+                  <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={sentinelColors.emerald} stopOpacity={0.5}/>
+                    <stop offset="95%" stopColor={sentinelColors.emerald} stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.1)" />
+                <XAxis dataKey="day" stroke="#94a3b8" fontSize={12} />
+                <YAxis stroke="#94a3b8" fontSize={12} />
+                <Tooltip content={<CustomTooltip />} />
+                <Area 
+                  type="monotone" 
+                  dataKey="score" 
+                  name="Sentiment"
+                  stroke={sentinelColors.emerald}
+                  strokeWidth={2}
+                  fillOpacity={1} 
+                  fill="url(#colorScore)"
+                  dot={{ fill: sentinelColors.emerald, strokeWidth: 2 }}
+                  activeDot={{ r: 6, fill: sentinelColors.emerald }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Sentiment Distribution */}
-        <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+        {/* Sentiment Distribution - Pie Chart */}
+        <motion.div
+          initial={shouldAnimate ? { opacity: 0, y: 20 } : false}
+          animate={shouldAnimate ? { opacity: 1, y: 0 } : false}
+          transition={{ duration: animationDuration, delay: 0.3 }}
+          className="glass-card p-6"
+        >
           <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-yellow-400" />
             Sentiment Distribution
           </h3>
           <div className="h-64">
-            <Doughnut data={sentimentPieData} options={doughnutChartOptions as any} />
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={sentimentPieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {sentimentPieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} stroke="transparent" />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
-        </div>
+          <div className="flex justify-center gap-4 mt-4">
+            {sentimentPieData.map((item, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                <span className="text-sm text-slate-400">{item.name}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
       </div>
 
       {/* Topics and Keywords */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Topic Clustering - Glowing Gold */}
-        <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+        {/* Topic Clustering - Bar Chart */}
+        <motion.div
+          initial={shouldAnimate ? { opacity: 0, y: 20 } : false}
+          animate={shouldAnimate ? { opacity: 1, y: 0 } : false}
+          transition={{ duration: animationDuration, delay: 0.4 }}
+          className="glass-card p-6"
+        >
           <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-yellow-400" />
             Topic Clustering
           </h3>
           <div className="h-64">
-            <Bar data={topicData} options={barChartOptions as any} />
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={topicData}>
+                <defs>
+                  <linearGradient id="colorArticles" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={sentinelColors.gold} stopOpacity={1}/>
+                    <stop offset="95%" stopColor={sentinelColors.gold} stopOpacity={0.6}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.1)" />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} />
+                <YAxis stroke="#94a3b8" fontSize={12} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar 
+                  dataKey="articles" 
+                  name="Articles"
+                  fill="url(#colorArticles)"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-        </div>
+        </motion.div>
 
         {/* Keywords */}
-        <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+        <motion.div
+          initial={shouldAnimate ? { opacity: 0, y: 20 } : false}
+          animate={shouldAnimate ? { opacity: 1, y: 0 } : false}
+          transition={{ duration: animationDuration, delay: 0.5 }}
+          className="glass-card p-6"
+        >
           <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-emerald-400" />
             Top Keywords
@@ -347,7 +427,7 @@ export default function SectorDashboard({ sectorSlug, isPremium }: SectorDashboa
               keywords.slice(0, 15).map((kw, i) => (
                 <span 
                   key={i}
-                  className="px-3 py-1.5 rounded-full text-sm bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:border-emerald-500/30 transition-colors"
+                  className="px-3 py-1.5 rounded-full text-sm bg-slate-700/50 text-slate-300 border border-slate-600/50 hover:border-emerald-500/30 transition-colors cursor-pointer"
                 >
                   {kw.keyword} <span className="text-slate-500">({kw.frequency})</span>
                 </span>
@@ -365,11 +445,16 @@ export default function SectorDashboard({ sectorSlug, isPremium }: SectorDashboa
               </>
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Weekly AI Summary */}
-      <div className="bg-slate-800/40 backdrop-blur border border-slate-700/50 rounded-xl p-6">
+      <motion.div
+        initial={shouldAnimate ? { opacity: 0, y: 20 } : false}
+        animate={shouldAnimate ? { opacity: 1, y: 0 } : false}
+        transition={{ duration: animationDuration, delay: 0.6 }}
+        className="glass-card p-6"
+      >
         <div className="flex items-center gap-2 mb-4">
           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500/20 to-emerald-500/20 flex items-center justify-center border border-yellow-500/30">
             <span className="text-lg">🤖</span>
@@ -387,11 +472,16 @@ export default function SectorDashboard({ sectorSlug, isPremium }: SectorDashboa
               `and market trends for strategic decision-making.`}
           </p>
         </div>
-      </div>
+      </motion.div>
 
       {/* Premium Features */}
       {!isPremium && (
-        <div className="bg-gradient-to-r from-yellow-900/20 to-amber-900/20 rounded-xl border border-yellow-500/20 p-6">
+        <motion.div
+          initial={shouldAnimate ? { opacity: 0, y: 20 } : false}
+          animate={shouldAnimate ? { opacity: 1, y: 0 } : false}
+          transition={{ duration: animationDuration, delay: 0.7 }}
+          className="bg-gradient-to-r from-yellow-900/20 to-amber-900/20 rounded-xl border border-yellow-500/20 p-6"
+        >
           <div className="flex items-center justify-between flex-col lg:flex-row gap-4">
             <div>
               <h3 className="text-lg font-semibold text-yellow-500">Upgrade to Pro</h3>
@@ -404,7 +494,7 @@ export default function SectorDashboard({ sectorSlug, isPremium }: SectorDashboa
               View Plans
             </a>
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );

@@ -12,9 +12,11 @@ import {
   Menu,
   X,
   Activity,
-  Shield
+  Shield,
+  Lock
 } from "lucide-react";
 import { useState } from "react";
+import LanguageToggle from "@/components/LanguageToggle";
 
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -23,6 +25,7 @@ const navItems = [
   { href: "/dashboard/finance", label: "Finance", icon: Landmark, color: "text-purple-400" },
   { href: "/dashboard/agriculture", label: "Agriculture", icon: Wheat, color: "text-emerald-400" },
   { href: "/pricing", label: "Pricing", icon: CreditCard, color: "text-yellow-400" },
+  { href: "/admin/sentinel", label: "Sentinel", icon: Lock, color: "text-red-400", hidden: true },
 ];
 
 export default function Navigation() {
@@ -34,16 +37,19 @@ export default function Navigation() {
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
         <div className="flex items-center justify-between px-4 h-16">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <span className="text-2xl">🇺🇬</span>
             <span className="font-bold text-yellow-500 tracking-wider text-sm">UGANDA INSIGHTS</span>
           </Link>
-          <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 text-slate-400 hover:text-white"
-          >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          <div className="flex items-center gap-2">
+            <LanguageToggle />
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 text-slate-400 hover:text-white"
+            >
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -51,7 +57,7 @@ export default function Navigation() {
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-40 bg-slate-900/95 backdrop-blur-md pt-20 px-4">
           <ul className="space-y-2">
-            {navItems.map((item) => {
+            {navItems.filter(item => !item.hidden).map((item) => {
               const isActive = pathname === item.href || 
                 (item.href !== "/dashboard" && pathname.startsWith(item.href));
               const Icon = item.icon;
@@ -74,6 +80,18 @@ export default function Navigation() {
               );
             })}
           </ul>
+          
+          {/* Sentinel Portal link on mobile */}
+          <div className="mt-6 pt-6 border-t border-slate-800">
+            <Link
+              href="/admin/sentinel"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-red-400 hover:bg-red-500/10"
+            >
+              <Lock size={20} className="text-red-400" />
+              Sentinel Portal
+            </Link>
+          </div>
         </div>
       )}
 
@@ -81,11 +99,13 @@ export default function Navigation() {
       <nav className="hidden lg:flex fixed left-0 top-0 h-screen w-64 bg-slate-900/80 backdrop-blur-md border-r border-slate-800 p-6 flex-col z-40">
         {/* Logo */}
         <div className="flex items-center gap-3 mb-10">
-          <span className="text-3xl">🇺🇬</span>
-          <div>
-            <h1 className="font-bold text-yellow-500 tracking-wider text-lg">UGANDA</h1>
-            <p className="text-xs text-slate-500 tracking-widest">INSIGHTS</p>
-          </div>
+          <Link href="/" className="flex items-center gap-3">
+            <span className="text-3xl">🇺🇬</span>
+            <div>
+              <h1 className="font-bold text-yellow-500 tracking-wider text-lg">UGANDA</h1>
+              <p className="text-xs text-slate-500 tracking-widest">INSIGHTS</p>
+            </div>
+          </Link>
         </div>
 
         {/* Status Indicator */}
@@ -96,7 +116,7 @@ export default function Navigation() {
 
         {/* Navigation Items */}
         <ul className="space-y-2 flex-1">
-          {navItems.map((item) => {
+          {navItems.filter(item => !item.hidden).map((item) => {
             const isActive = pathname === item.href || 
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
             const Icon = item.icon;
@@ -119,6 +139,22 @@ export default function Navigation() {
           })}
         </ul>
 
+        {/* Sentinel Portal Link */}
+        <div className="pt-4 border-t border-slate-800 mb-4">
+          <Link
+            href="/admin/sentinel"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-red-400 hover:bg-red-500/10 hover:text-red-300"
+          >
+            <Lock size={20} />
+            <span className="font-medium">Sentinel Portal</span>
+          </Link>
+        </div>
+
+        {/* Language Toggle */}
+        <div className="mb-4">
+          <LanguageToggle />
+        </div>
+
         {/* Footer */}
         <div className="pt-4 border-t border-slate-800">
           <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -131,7 +167,8 @@ export default function Navigation() {
       {/* Main Content Wrapper */}
       <div className="lg:pl-64">
         {/* Top Status Bar for Desktop */}
-        <div className="hidden lg:flex fixed top-0 right-0 h-16 bg-slate-900/50 backdrop-blur-md border-b border-slate-800 items-center justify-end px-6 z-30">
+        <div className="hidden lg:flex fixed top-0 right-0 h-16 bg-slate-900/50 backdrop-blur-md border-b border-slate-800 items-center justify-end px-6 z-30 gap-4">
+          <LanguageToggle />
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-sm text-slate-400 font-mono">Status: SENTINEL ACTIVE</span>
