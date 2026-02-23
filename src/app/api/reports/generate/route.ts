@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate PDF
-    return new Promise((resolve) => {
+    return new Promise<NextResponse>((resolve) => {
       const doc = new PDFDocument({ margin: 50 });
       const chunks: Buffer[] = [];
 
